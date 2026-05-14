@@ -13,7 +13,7 @@ export const useInventoryStore = defineStore('inventory', () => {
     loading.value = true
     error.value = null
     try {
-      const res = await inventoryApi.get('/')
+      const res = await inventoryApi.get('')
       inventoryList.value = res.data.data.map((item) => ({
         id: item.id,
         ...item.attributes,

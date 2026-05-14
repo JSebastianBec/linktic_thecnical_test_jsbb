@@ -5,6 +5,10 @@ COPY package.json ./
 RUN npm install
 
 COPY . .
+
+ARG VITE_API_KEY=local-dev-key
+ENV VITE_API_KEY=$VITE_API_KEY
+
 RUN npm run build
 
 FROM nginx:alpine

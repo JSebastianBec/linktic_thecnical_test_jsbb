@@ -20,7 +20,7 @@ spring:
     password: guest
 
 security:
-  api-key: local-dev-key
+  api-key: ${SECURITY_API_KEY:local-dev-key}
 
 springdoc:
   api-docs:

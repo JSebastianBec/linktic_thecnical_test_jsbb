@@ -13,7 +13,7 @@ export const useProductStore = defineStore('products', () => {
     loading.value = true
     error.value = null
     try {
-      const res = await productApi.get('/')
+      const res = await productApi.get('')
       products.value = res.data.data.map((item) => ({
         id: item.id,
         ...item.attributes,
@@ -43,7 +43,7 @@ export const useProductStore = defineStore('products', () => {
     loading.value = true
     error.value = null
     try {
-      const res = await productApi.post('/', payload)
+      const res = await productApi.post('', payload)
       return { id: res.data.data.id, ...res.data.data.attributes }
     } catch (err) {
       error.value = extractApiError(err)
