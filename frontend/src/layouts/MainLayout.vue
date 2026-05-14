@@ -96,7 +96,7 @@ const inventoryLinks = [
 ]
 
 function isActive(path) {
-  return route.path === path || route.path.startsWith(path + '/')
+  return route.path === path
 }
 
 function navigate(path) {
