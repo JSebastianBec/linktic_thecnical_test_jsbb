@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+  jpa:
+    show-sql: false
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST}
+    username: ${SPRING_RABBITMQ_USERNAME}
+    password: ${SPRING_RABBITMQ_PASSWORD}
+
+security:
+  api-key: ${SECURITY_API_KEY}
+
+product:
+  service:
+    url: ${PRODUCT_SERVICE_URL}
+    api-key: ${PRODUCT_SERVICE_API_KEY}

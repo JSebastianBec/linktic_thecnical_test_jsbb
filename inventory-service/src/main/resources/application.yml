@@ -1,0 +1,40 @@
+server:
+  port: 8081
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/linktic_db
+    username: app_user
+    password: changeme
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+security:
+  api-key: local-dev-key
+
+product:
+  service:
+    url: http://localhost:8080
+    api-key: local-dev-key
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always
