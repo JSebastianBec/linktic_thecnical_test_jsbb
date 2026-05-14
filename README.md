@@ -18,6 +18,8 @@ Demuestra estándar JSON API, pruebas de integración con Testcontainers y orque
 8. [Monitoreo de RabbitMQ](#monitoreo-de-rabbitmq)
 9. [Decisiones técnicas](#decisiones-técnicas)
 10. [Pruebas](#pruebas)
+    - [Backend (Java)](#pruebas-de-backend-java)
+    - [Frontend (Vue 3 / Vitest)](#pruebas-de-frontend-vue-3--vitest)
 11. [Git Flow](#git-flow)
 12. [Uso de herramientas de IA](#uso-de-herramientas-de-ia)
 
@@ -635,12 +637,15 @@ Los mensajes se serializan como **JSON** usando `Jackson2JsonMessageConverter` e
 
 ### Cobertura
 
-| Servicio          | Tipo                    | Herramientas                         | Objetivo |
-|-------------------|-------------------------|--------------------------------------|----------|
-| product-service   | Unitarias + Integración | JUnit 5, Mockito, Testcontainers     | ≥ 80%    |
-| inventory-service | Unitarias               | JUnit 5, Mockito                     | ≥ 80%    |
+| Capa              | Tipo                    | Herramientas                                      | Objetivo |
+|-------------------|-------------------------|---------------------------------------------------|----------|
+| product-service   | Unitarias + Integración | JUnit 5, Mockito, Testcontainers, JaCoCo          | ≥ 80%    |
+| inventory-service | Unitarias               | JUnit 5, Mockito, JaCoCo                          | ≥ 80%    |
+| frontend          | Unitarias               | Vitest, @vue/test-utils, @pinia/testing           | —        |
 
-### Ejecutar pruebas
+---
+
+### Pruebas de backend (Java)
 
 ```bash
 # product-service
@@ -660,7 +665,55 @@ open product-service/build/reports/jacoco/test/html/index.html
 open inventory-service/build/reports/jacoco/test/html/index.html
 ```
 
-### Qué se prueba
+---
+
+### Pruebas de frontend (Vue 3 / Vitest)
+
+Requisito: Node.js 20+ instalado.
+
+```bash
+cd frontend
+
+# Instalar dependencias (solo la primera vez)
+npm install
+
+# Ejecutar todos los tests una vez
+npm test
+
+# Modo watch — re-ejecuta al guardar cambios
+npm run test:watch
+
+# Ejecutar con reporte de cobertura (genera HTML en coverage/)
+npm run test:coverage
+
+# Abrir reporte de cobertura en el navegador (Mac)
+open coverage/index.html
+```
+
+#### Qué se prueba en el frontend
+
+**Stores (lógica de negocio con API mockeada):**
+
+| Store               | Escenarios cubiertos |
+|---------------------|---------------------|
+| `useProductStore`   | `fetchAll` (lista, error, loading), `fetchById` (encontrado, no encontrado), `create` (éxito, error), `clearError` |
+| `useInventoryStore` | `fetchAll`, `fetchByProductId`, `updateStock`, `requestPurchase`, `getPurchaseStatus` — happy path + error en cada uno |
+
+**Páginas (renderizado e interacción con store):**
+
+| Página              | Happy path | Edge cases |
+|---------------------|-----------|------------|
+| `ProductsPage`      | Renderiza formulario; submit llama `store.create` y muestra producto creado | Error de store visible; validación fallida no llama al store |
+| `ProductsListPage`  | `fetchAll` en mount; `avgPrice` y `maxPrice` calculados | Lista vacía muestra `0.00`; error de store visible |
+| `ProductByIdPage`   | Submit llama `fetchById` y muestra resultado | Resultado nulo muestra estado vacío; error visible |
+| `InventoryPage`     | Submit llama `fetchByProductId` y muestra inventario | Resultado nulo muestra estado vacío; error visible |
+| `InventoryListPage` | `fetchAll` en mount; filtro por nombre funciona | Lista vacía contabiliza cero con/sin stock |
+| `UpdateStockPage`   | Submit llama `updateStock` y muestra panel de resultado | Resultado nulo no muestra panel; validación fallida no llama al store |
+| `PurchasePage`      | Submit llama `requestPurchase` y muestra PENDING; polling actualiza a COMPLETED | FAILED muestra mensaje de rechazo; polling se detiene al desmontar |
+
+---
+
+### Qué se prueba en el backend
 
 **product-service:**
 - `ProductService` — crear, obtener por ID (encontrado / no encontrado), listar todos
