@@ -1,0 +1,20 @@
+name: Branch Naming Convention
+
+on:
+  pull_request:
+    branches: [ develop, main ]
+
+jobs:
+  check-branch-name:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch name
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          echo "Branch: $BRANCH"
+          if [[ ! "$BRANCH" =~ ^(feature|release|hotfix|bugfix)/.+ ]]; then
+            echo "❌ Branch '$BRANCH' does not follow Git Flow naming convention."
+            echo "   Expected pattern: feature/*, release/*, hotfix/*, bugfix/*"
+            exit 1
+          fi
+          echo "✅ Branch name is valid."
