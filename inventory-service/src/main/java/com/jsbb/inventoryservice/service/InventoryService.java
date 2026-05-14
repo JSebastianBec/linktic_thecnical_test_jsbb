@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -33,6 +34,16 @@ public class InventoryService {
     private final PurchaseRequestRepository purchaseRequestRepository;
     private final ProductClient productClient;
     private final RabbitTemplate rabbitTemplate;
+
+    @Transactional(readOnly = true)
+    public List<StockResponse> getAll() {
+        return inventoryRepository.findAll().stream()
+                .map(inv -> {
+                    ProductResponse product = productClient.getProduct(inv.getProductId());
+                    return new StockResponse(inv.getProductId(), product, inv.getStock());
+                })
+                .toList();
+    }
 
     @Transactional(readOnly = true)
     public StockResponse getStock(Long productId) {

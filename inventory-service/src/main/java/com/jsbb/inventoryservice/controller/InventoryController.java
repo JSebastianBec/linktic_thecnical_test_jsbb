@@ -2,6 +2,8 @@ package com.jsbb.inventoryservice.controller;
 
 import com.jsbb.inventoryservice.dto.request.PurchaseRequestDto;
 import com.jsbb.inventoryservice.dto.request.UpdateStockRequest;
+import com.jsbb.inventoryservice.dto.response.JsonApiData;
+import com.jsbb.inventoryservice.dto.response.JsonApiListResponse;
 import com.jsbb.inventoryservice.dto.response.JsonApiResponse;
 import com.jsbb.inventoryservice.dto.response.PurchaseStatusResponse;
 import com.jsbb.inventoryservice.dto.response.StockResponse;
@@ -14,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -23,6 +26,15 @@ import java.util.UUID;
 public class InventoryController {
 
     private final InventoryService service;
+
+    @Operation(summary = "List all inventory")
+    @GetMapping
+    public ResponseEntity<JsonApiListResponse<StockResponse>> getAll() {
+        List<JsonApiData<StockResponse>> items = service.getAll().stream()
+                .map(s -> new JsonApiData<>(String.valueOf(s.productId()), "inventory", s))
+                .toList();
+        return ResponseEntity.ok(JsonApiListResponse.of(items));
+    }
 
     @Operation(summary = "Get stock by product ID")
     @GetMapping("/{productId}")

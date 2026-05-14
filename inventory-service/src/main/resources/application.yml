@@ -17,12 +17,12 @@ spring:
     password: guest
 
 security:
-  api-key: local-dev-key
+  api-key: ${SECURITY_API_KEY:local-dev-key}
 
 product:
   service:
-    url: http://localhost:8080
-    api-key: local-dev-key
+    url: ${PRODUCT_SERVICE_URL:http://localhost:8080}
+    api-key: ${PRODUCT_SERVICE_API_KEY:local-dev-key}
 
 springdoc:
   api-docs:

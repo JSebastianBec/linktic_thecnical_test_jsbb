@@ -14,10 +14,11 @@ Demonstrates Git Flow, JSON API standard, Testcontainers integration testing, an
 4. [Service Interaction Diagram](#service-interaction-diagram)
 5. [API Documentation](#api-documentation)
 6. [Purchase Flow](#purchase-flow)
-7. [Technical Decisions](#technical-decisions)
-8. [Testing](#testing)
-9. [Git Flow](#git-flow)
-10. [AI Tools Usage](#ai-tools-usage)
+7. [Monitoring RabbitMQ](#monitoring-rabbitmq)
+8. [Technical Decisions](#technical-decisions)
+9. [Testing](#testing)
+10. [Git Flow](#git-flow)
+11. [AI Tools Usage](#ai-tools-usage)
 
 ---
 
@@ -67,11 +68,41 @@ cd inventory-service && ./gradlew bootJar --no-daemon && cd ..
 cd frontend && npm install && cd ..
 ```
 
-### 4. Run with Docker Compose
+### 4. Start
 
 ```bash
+# First run — builds images and starts all containers
+docker-compose up --build
+
+# Subsequent runs — starts without rebuilding (faster)
+docker-compose up
+```
+
+> All services start in dependency order: PostgreSQL and RabbitMQ first, then the backends, then the frontend.
+
+### 5. Stop
+
+```bash
+# Stop all containers but keep volumes and data
+docker-compose stop
+
+# Stop and remove containers (data is preserved in volumes)
+docker-compose down
+```
+
+### 6. Clean restart (wipe all data)
+
+Use this when you want a completely fresh state — empty database, empty queues:
+
+```bash
+# Stop containers and delete volumes (all data is lost)
+docker-compose down -v
+
+# Rebuild images and start fresh
 docker-compose up --build
 ```
+
+> Use `down -v` when switching branches or after schema changes to avoid Hibernate conflicts with existing tables.
 
 ### Service URLs
 
@@ -310,6 +341,87 @@ POST /purchases  →  202 Accepted + purchaseId
 **Why asynchronous?** When a purchase is requested and stock is temporarily unavailable (e.g., a stock update is expected), the system waits up to 30 seconds (3 attempts × 10s) before failing. This avoids forcing the client to poll the product's availability manually.
 
 The client uses `GET /api/v1/inventory/purchases/{id}` to poll the result. The frontend polls every 3 seconds and stops automatically when the status resolves to `COMPLETED` or `FAILED`.
+
+---
+
+## Monitoring RabbitMQ
+
+### Management UI
+
+Open **http://localhost:15672** in the browser after running `docker-compose up`.
+
+| Field    | Value   |
+|----------|---------|
+| Username | `guest` |
+| Password | `guest` |
+
+#### Key sections
+
+**Overview tab**
+Global message rates — published, delivered, acknowledged and unacknowledged per second. Useful to confirm messages are flowing when a product is created or a purchase is requested.
+
+**Queues tab**
+Shows each queue with its current state:
+
+| Queue | Purpose |
+|---|---|
+| `inventory.product-created` | Receives `product.created` events — triggers inventory initialization |
+| `purchase.requested` | Entry point for new purchase requests |
+| `purchase.wait` | Holds retried purchases for 10 s (TTL) before re-routing back to `purchase.requested` |
+| `purchase.dlq` | Dead letter queue — messages land here if processing fails repeatedly |
+
+Click any queue name to see:
+- **Messages ready** — waiting to be consumed
+- **Messages unacknowledged** — being processed right now
+- **Get messages** button — inspect the raw JSON payload of any message in the queue
+
+**Exchanges tab**
+Shows `products.exchange` and `purchase.exchange`. Click either to see bindings — which queues each routing key maps to.
+
+---
+
+### Container logs
+
+The most useful logs for tracing the message flow are in `inventory-service`, since it both consumes and publishes:
+
+```bash
+# Follow inventory-service logs (listeners log every step)
+docker logs inventory-service -f
+
+# Follow product-service logs (publishes product.created on every POST /products)
+docker logs product-service -f
+
+# RabbitMQ broker logs
+docker logs rabbitmq -f
+
+# Show only the last 50 lines then follow
+docker logs inventory-service --tail 50 -f
+```
+
+#### Expected log sequence — create product + purchase
+
+```
+# product-service — after POST /products
+INFO  ProductService : Product created: id=1, name=Laptop
+
+# inventory-service — listener receives product.created
+INFO  ProductCreatedListener : Product created event received: productId=1, name=Laptop
+INFO  ProductCreatedListener : Inventory initialized for productId=1 with stock=0
+
+# inventory-service — after POST /inventory/purchases (stock available)
+INFO  InventoryService          : Purchase request enqueued: id=<uuid>, productId=1, qty=3
+INFO  PurchaseRequestedListener : Processing purchase: id=<uuid>, productId=1, qty=3, attempt=1
+INFO  PurchaseRequestedListener : Purchase COMPLETED: id=<uuid>, remaining stock=7
+
+# inventory-service — retry flow (no stock available)
+INFO  InventoryService          : Purchase request enqueued: id=<uuid>, productId=1, qty=99
+INFO  PurchaseRequestedListener : Processing purchase: id=<uuid>, productId=1, qty=99, attempt=1
+WARN  PurchaseRequestedListener : Insufficient stock — retry scheduled (attempt 1/3)
+INFO  PurchaseRequestedListener : Processing purchase: id=<uuid>, productId=1, qty=99, attempt=2
+WARN  PurchaseRequestedListener : Insufficient stock — retry scheduled (attempt 2/3)
+INFO  PurchaseRequestedListener : Processing purchase: id=<uuid>, productId=1, qty=99, attempt=3
+WARN  PurchaseRequestedListener : Purchase FAILED: id=<uuid> — insufficient stock after 3 attempts
+```
 
 ---
 
