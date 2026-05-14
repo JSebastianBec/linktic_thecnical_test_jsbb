@@ -12,13 +12,14 @@ Demuestra estándar JSON API, pruebas de integración con Testcontainers y orque
 2. [Instalación y ejecución](#instalación-y-ejecución)
 3. [Arquitectura](#arquitectura)
 4. [Diagrama de interacción entre servicios](#diagrama-de-interacción-entre-servicios)
-5. [Documentación de la API](#documentación-de-la-api)
-6. [Flujo de compra](#flujo-de-compra)
-7. [Monitoreo de RabbitMQ](#monitoreo-de-rabbitmq)
-8. [Decisiones técnicas](#decisiones-técnicas)
-9. [Pruebas](#pruebas)
-10. [Git Flow](#git-flow)
-11. [Uso de herramientas de IA](#uso-de-herramientas-de-ia)
+5. [Stack tecnológico](#stack-tecnológico)
+6. [Documentación de la API](#documentación-de-la-api)
+7. [Flujo de compra](#flujo-de-compra)
+8. [Monitoreo de RabbitMQ](#monitoreo-de-rabbitmq)
+9. [Decisiones técnicas](#decisiones-técnicas)
+10. [Pruebas](#pruebas)
+11. [Git Flow](#git-flow)
+12. [Uso de herramientas de IA](#uso-de-herramientas-de-ia)
 
 ---
 
@@ -229,6 +230,148 @@ Cliente          inventory-service        RabbitMQ             inventory-service
   │─ GET /purchases/id►│                   │                     │
   │◄── { COMPLETED } ──│                    │                     │
 ```
+
+---
+
+## Stack tecnológico
+
+### Java 21
+
+| | |
+|---|---|
+| **Por qué** | Es la versión LTS más reciente de Java. Introduce _records_, _sealed classes_ y _pattern matching_ como características estables, lo que permite escribir código más conciso y seguro sin depender de librerías externas. |
+| **Cómo** | Se usa como runtime base para ambos microservicios. Los DTOs de request y response (`CreateProductRequest`, `PurchaseRequestDto`, `StockResponse`, etc.) se implementaron como **records** de Java 21 en lugar de clases POJO con Lombok. |
+| **Para qué** | Reducir el boilerplate en los objetos de transferencia de datos: con un record se obtiene inmutabilidad, `equals`, `hashCode`, `toString` y accesores sin escribir código adicional. Las anotaciones de validación (`@NotBlank`, `@Positive`) funcionan directamente en los componentes del record. |
+
+---
+
+### Spring Boot 3.5
+
+| | |
+|---|---|
+| **Por qué** | Es el framework estándar de la industria para construir microservicios en Java. La versión 3.5 corre sobre Spring Framework 6, que requiere Java 17+ y aporta mejoras de rendimiento con el compilador AOT de GraalVM. |
+| **Cómo** | Cada microservicio es una aplicación Spring Boot independiente. Se usan los starters de `spring-boot-starter-web` (REST), `spring-boot-starter-data-jpa` (persistencia), `spring-boot-starter-amqp` (RabbitMQ) y `spring-boot-starter-validation` (validación de entrada). La configuración de seguridad usa `OncePerRequestFilter` para validar el header `X-API-KEY` en cada petición. |
+| **Para qué** | Proveer el contenedor IoC, la capa HTTP, la integración con JPA/Hibernate y la autoconfiguración de RabbitMQ. Spring Boot elimina la configuración manual de Tomcat, DataSource y otros componentes de infraestructura. |
+
+---
+
+### Gradle con Kotlin DSL (`build.gradle.kts`)
+
+| | |
+|---|---|
+| **Por qué** | Maven usa XML, que es verboso y no tiene seguridad de tipos. Gradle con Kotlin DSL provee autocompletado en el IDE y detecta errores de configuración en tiempo de edición, no de ejecución. |
+| **Cómo** | Cada servicio tiene su propio `build.gradle.kts`. El plugin de JaCoCo se configura en el mismo archivo: se define el umbral de cobertura mínima del 80% y se excluyen clases de infraestructura (`MessagingConfig`, `*Application`) que no aportan lógica de negocio testeable. |
+| **Para qué** | Compilar, empaquetar (`bootJar`) y verificar la cobertura de pruebas de cada microservicio de forma independiente. También gestiona todas las dependencias declaradas en el bloque `dependencies {}`. |
+
+---
+
+### RabbitMQ
+
+| | |
+|---|---|
+| **Por qué** | El flujo de compra no puede ser síncrono: cuando no hay stock disponible, el sistema necesita esperar y reintentar sin bloquear el hilo HTTP del cliente. RabbitMQ permite desacoplar la solicitud de la ejecución, habilitando reintentos controlados con TTL sin usar `Thread.sleep()` ni schedulers. |
+| **Cómo** | Se configuran dos exchanges y cuatro colas. El exchange `products.exchange` transporta el evento `product.created` cuando se crea un producto. El exchange `purchase.exchange` maneja el flujo de compra: `purchase.requested` recibe solicitudes nuevas, `purchase.wait` retiene mensajes 10 segundos (TTL) y los reenvía de vuelta a `purchase.requested`, y `purchase.dlq` captura mensajes que no pudieron procesarse. Los mensajes se serializan como JSON usando `Jackson2JsonMessageConverter`. |
+| **Para qué** | Dos propósitos: (1) comunicación asíncrona entre servicios cuando se crea un producto — `product-service` publica el evento y `inventory-service` lo consume para inicializar el inventario en cero. (2) implementar el flujo de compra diferida con reintentos automáticos — el listener intenta descontar stock hasta 3 veces antes de marcar la compra como FAILED. |
+
+---
+
+### PostgreSQL
+
+| | |
+|---|---|
+| **Por qué** | El flujo de compra requiere transacciones ACID: descontar el stock y registrar la compra como COMPLETED deben ocurrir juntos o no ocurrir. Una base de datos relacional garantiza esto a nivel de motor, sin necesidad de lógica compensatoria adicional. |
+| **Cómo** | Una sola instancia de PostgreSQL contiene la base de datos `linktic_db` con tres tablas: `products`, `inventory` y `purchase_requests`. La configuración de conexión se inyecta vía variables de entorno (`SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`) que Spring Boot detecta automáticamente. Hibernate genera el esquema en cada arranque (`ddl-auto: update`). |
+| **Para qué** | Persistir el catálogo de productos, el nivel de stock por producto y el historial de solicitudes de compra con su estado (`PENDING`, `COMPLETED`, `FAILED`). |
+
+---
+
+### WebClient (Spring WebFlux)
+
+| | |
+|---|---|
+| **Por qué** | `RestTemplate` fue deprecado en Spring Framework 6. `WebClient` es el cliente HTTP recomendado y soporta timeout y manejo de errores directamente en la cadena de llamada, sin necesidad de librerías adicionales. |
+| **Cómo** | `inventory-service` usa un bean `WebClient` configurado con la URL base de `product-service` (`${PRODUCT_SERVICE_URL}`). Al validar una solicitud de compra, llama a `GET /api/v1/products/{id}` y maneja errores 4xx/5xx con `.onStatus()`. |
+| **Para qué** | Verificar que el producto existe en `product-service` antes de registrar la solicitud de compra. Esto evita crear registros de compra para productos inexistentes. |
+
+---
+
+### Quasar Framework + Vue 3
+
+| | |
+|---|---|
+| **Por qué** | Quasar es un framework sobre Vue 3 que provee componentes listos para producción (tablas, formularios, notificaciones, layouts) con soporte nativo para PWA, SPA y SSR. Reduce significativamente el tiempo de desarrollo del frontend sin sacrificar calidad visual. |
+| **Cómo** | El frontend es una SPA (Single Page Application) organizada con Pinia para la gestión de estado. Cada entidad tiene su propio store (`useProductStore`, `useInventoryStore`) que encapsula las llamadas a la API. El routing está definido en `src/router/routes.js` con tres páginas: Productos, Inventario y Compras. |
+| **Para qué** | Proveer la interfaz de usuario que permite crear productos, ver el inventario actualizado y solicitar compras con seguimiento de estado en tiempo real (polling cada 3 segundos). |
+
+---
+
+### Pinia
+
+| | |
+|---|---|
+| **Por qué** | Es el gestor de estado oficial de Vue 3, reemplazando a Vuex. Su API basada en _composition API_ es más simple y fácil de depurar. |
+| **Cómo** | Cada recurso del backend tiene un store de Pinia (`useProductStore.js`, `useInventoryStore.js`) que mantiene la lista de items en memoria y expone acciones asíncronas (`fetchProducts`, `createProduct`, `fetchInventory`, etc.). Los componentes de las páginas llaman a estas acciones en lugar de hacer llamadas HTTP directas. |
+| **Para qué** | Centralizar el estado de la aplicación y evitar que la lógica de comunicación con la API quede dispersa en los componentes. También permite que múltiples componentes compartan los mismos datos sin pasarlos como props. |
+
+---
+
+### Nginx (reverse proxy en el frontend)
+
+| | |
+|---|---|
+| **Por qué** | En producción (Docker), el navegador no puede resolver los nombres de contenedor (`product-service:8080`, `inventory-service:8081`). Nginx actúa como intermediario: el navegador hace peticiones a `localhost:9000/api/products/*` y Nginx las redirige internamente al contenedor correcto. |
+| **Cómo** | El contenedor del frontend incluye un archivo `nginx/nginx.conf` que reescribe las rutas con reglas `rewrite`: `/api/products/*` → `http://product-service:8080/api/v1/products/*` y `/api/inventory/*` → `http://inventory-service:8081/api/v1/inventory/*`. |
+| **Para qué** | Resolver el problema de red entre el navegador y los contenedores Docker sin exponer los puertos de los backends directamente ni modificar el código del frontend. |
+
+---
+
+### Docker Compose
+
+| | |
+|---|---|
+| **Por qué** | Orquestar cinco servicios (`postgres`, `rabbitmq`, `product-service`, `inventory-service`, `frontend`) con sus dependencias y variables de entorno de forma reproducible en cualquier máquina. |
+| **Cómo** | El archivo `docker-compose.yml` define el orden de arranque con `depends_on` y `healthcheck`: primero arranca PostgreSQL y RabbitMQ, luego los backends esperan que ambos estén saludables, y finalmente el frontend espera que los backends estén disponibles. Las imágenes de los backends usan builds multi-etapa (JDK para compilar, JRE para ejecutar) para reducir el tamaño final. |
+| **Para qué** | Levantar el sistema completo con un solo comando (`docker-compose up --build`) sin necesidad de instalar Java, Node ni ninguna dependencia de manera local, excepto Docker. |
+
+---
+
+### Testcontainers
+
+| | |
+|---|---|
+| **Por qué** | Las pruebas de integración que usan bases de datos embebidas como H2 no detectan incompatibilidades con la SQL de PostgreSQL. Testcontainers levanta un contenedor Docker real de PostgreSQL durante las pruebas, garantizando que el SQL probado es exactamente el que corre en producción. |
+| **Cómo** | En `ProductIntegrationTest`, la anotación `@Testcontainers` gestiona el ciclo de vida del contenedor. Se declara un `@Container` de tipo `PostgreSQLContainer<?>` y se configura el `DataSource` con `@DynamicPropertySource` para que Spring use la URL del contenedor efímero. |
+| **Para qué** | Verificar el flujo HTTP completo de `product-service` (creación, listado, búsqueda por ID) contra una base de datos PostgreSQL real, sin depender de un servidor externo en el entorno de CI. |
+
+---
+
+### JaCoCo
+
+| | |
+|---|---|
+| **Por qué** | Sin una herramienta de medición de cobertura es difícil identificar qué ramas del código nunca se ejecutan durante las pruebas, dejando posibles defectos sin detectar. |
+| **Cómo** | El plugin de JaCoCo está configurado en `build.gradle.kts`. La tarea `jacocoTestCoverageVerification` falla el build si la cobertura de instrucciones cae por debajo del 80%. Se excluyen clases de configuración (`*Config`, `*Application`) porque no contienen lógica de negocio testeable. |
+| **Para qué** | Garantizar que al menos el 80% del código de negocio está cubierto por pruebas automáticas. El reporte HTML generado en `build/reports/jacoco/` permite visualizar qué líneas y ramas no tienen cobertura. |
+
+---
+
+### Springdoc OpenAPI (Swagger UI)
+
+| | |
+|---|---|
+| **Por qué** | La documentación de API manual queda desactualizada. Springdoc genera la especificación OpenAPI automáticamente desde las anotaciones del controlador (`@Operation`, `@Tag`), garantizando que la documentación siempre refleja el código real. |
+| **Cómo** | La dependencia `springdoc-openapi-starter-webmvc-ui` se agrega en `build.gradle.kts`. Los controladores usan `@Tag` para agrupar endpoints y `@Operation` para describir cada uno. La UI queda disponible en `/swagger-ui.html` sin configuración adicional. |
+| **Para qué** | Proveer una interfaz interactiva para explorar y probar los endpoints de cada microservicio directamente desde el navegador, útil durante el desarrollo y la revisión de la API. |
+
+---
+
+### Estándar JSON API
+
+| | |
+|---|---|
+| **Por qué** | Una API inconsistente (a veces devuelve el objeto directamente, a veces dentro de `data`, a veces los errores en `message`, a veces en `error`) dificulta el consumo desde el frontend. JSON API define una estructura estricta y predecible para respuestas exitosas y de error. |
+| **Cómo** | Todos los endpoints devuelven objetos envueltos en la estructura `{ "data": { "id": "...", "type": "...", "attributes": { ... } } }`. Los errores siguen el formato `{ "errors": [{ "status": "...", "title": "...", "detail": "..." }] }`. Las clases genéricas `JsonApiResponse<T>`, `JsonApiListResponse<T>` y `JsonApiData<T>` centralizan este envoltorio. |
+| **Para qué** | Hacer que el frontend pueda leer cualquier respuesta con la misma lógica (`response.data.attributes`) independientemente del endpoint, y que los errores siempre aparezcan en `response.errors`. |
 
 ---
 
