@@ -1,0 +1,33 @@
+{
+  "name": "linktic-frontend",
+  "version": "1.0.0",
+  "description": "Linktic Technical Test Frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "quasar dev",
+    "build": "quasar build",
+    "lint": "eslint --ext .js,.vue ./src"
+  },
+  "dependencies": {
+    "@quasar/extras": "^1.16.4",
+    "axios": "^1.7.7",
+    "pinia": "^2.2.6",
+    "quasar": "^2.16.0",
+    "vue": "^3.5.13",
+    "vue-router": "^4.4.5"
+  },
+  "devDependencies": {
+    "@quasar/app-vite": "^2.0.0",
+    "@vue/eslint-config-prettier": "^10.1.0",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.14.0",
+    "eslint-plugin-vue": "^9.30.0",
+    "postcss": "^8.4.47",
+    "prettier": "^3.3.3",
+    "vite-plugin-checker": "^0.8.0"
+  },
+  "engines": {
+    "node": "^20 || ^22 || ^24"
+  }
+}
