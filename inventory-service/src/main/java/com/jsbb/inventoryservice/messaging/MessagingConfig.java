@@ -1,5 +1,6 @@
 package com.jsbb.inventoryservice.messaging;
 
+import com.jsbb.inventoryservice.util.ApiConstants;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -49,7 +50,7 @@ public class MessagingConfig {
     @Bean
     public Queue productCreatedQueue() {
         return QueueBuilder.durable(PRODUCT_CREATED_QUEUE)
-                .withArgument("x-dead-letter-exchange", DLX_EXCHANGE)
+                .withArgument(ApiConstants.RABBIT_ARG_DEAD_LETTER_EXCHANGE, DLX_EXCHANGE)
                 .build();
     }
 
@@ -62,9 +63,9 @@ public class MessagingConfig {
     @Bean
     public Queue purchaseWaitQueue() {
         return QueueBuilder.durable(PURCHASE_WAIT_QUEUE)
-                .withArgument("x-message-ttl", WAIT_TTL_MS)
-                .withArgument("x-dead-letter-exchange", PURCHASE_EXCHANGE)
-                .withArgument("x-dead-letter-routing-key", PURCHASE_REQUESTED_KEY)
+                .withArgument(ApiConstants.RABBIT_ARG_MESSAGE_TTL, WAIT_TTL_MS)
+                .withArgument(ApiConstants.RABBIT_ARG_DEAD_LETTER_EXCHANGE, PURCHASE_EXCHANGE)
+                .withArgument(ApiConstants.RABBIT_ARG_DEAD_LETTER_ROUTING, PURCHASE_REQUESTED_KEY)
                 .build();
     }
 

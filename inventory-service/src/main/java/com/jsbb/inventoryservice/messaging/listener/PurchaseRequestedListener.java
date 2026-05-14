@@ -1,6 +1,7 @@
 package com.jsbb.inventoryservice.messaging.listener;
 
 import com.jsbb.inventoryservice.messaging.MessagingConfig;
+import com.jsbb.inventoryservice.util.ErrorMessages;
 import com.jsbb.inventoryservice.messaging.event.PurchaseRequestedEvent;
 import com.jsbb.inventoryservice.model.Inventory;
 import com.jsbb.inventoryservice.model.PurchaseRequest;
@@ -66,7 +67,7 @@ public class PurchaseRequestedListener {
 
         } else {
             purchaseRequest.setStatus(PurchaseRequest.PurchaseStatus.FAILED);
-            purchaseRequest.setFailureReason("Insufficient stock after " + MAX_ATTEMPTS + " attempts");
+            purchaseRequest.setFailureReason(ErrorMessages.INSUFFICIENT_STOCK_AFTER + MAX_ATTEMPTS + ErrorMessages.ATTEMPTS_SUFFIX);
             purchaseRequest.setResolvedAt(Instant.now());
             purchaseRequestRepository.save(purchaseRequest);
             log.warn("Purchase FAILED: id={} — insufficient stock after {} attempts", event.purchaseId(), MAX_ATTEMPTS);

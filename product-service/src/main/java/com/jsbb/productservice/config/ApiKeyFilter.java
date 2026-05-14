@@ -1,5 +1,6 @@
 package com.jsbb.productservice.config;
 
+import com.jsbb.productservice.util.ApiConstants;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,7 +17,9 @@ import java.util.List;
 public class ApiKeyFilter extends OncePerRequestFilter {
 
     private static final List<String> EXCLUDED_PATHS = List.of(
-            "/swagger-ui/**", "/v3/api-docs/**", "/actuator/**"
+            ApiConstants.SWAGGER_UI_PATH,
+            ApiConstants.API_DOCS_PATH,
+            ApiConstants.ACTUATOR_PATH
     );
 
     private final AntPathMatcher pathMatcher = new AntPathMatcher();
@@ -34,10 +37,10 @@ public class ApiKeyFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
-        String header = request.getHeader("X-API-KEY");
+        String header = request.getHeader(ApiConstants.API_KEY_HEADER);
         if (header == null || !header.equals(apiKey)) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write("{\"errors\":[{\"status\":\"401\",\"title\":\"Unauthorized\",\"detail\":\"Invalid or missing API key\"}]}");
+            response.getWriter().write(ApiConstants.UNAUTHORIZED_BODY);
             return;
         }
         chain.doFilter(request, response);

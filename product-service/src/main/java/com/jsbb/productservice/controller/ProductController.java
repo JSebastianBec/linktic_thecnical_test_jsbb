@@ -1,10 +1,12 @@
 package com.jsbb.productservice.controller;
 
 import com.jsbb.productservice.dto.request.ProductRequest;
+import com.jsbb.productservice.dto.response.JsonApiData;
 import com.jsbb.productservice.dto.response.JsonApiListResponse;
 import com.jsbb.productservice.dto.response.JsonApiResponse;
 import com.jsbb.productservice.dto.response.ProductResponse;
 import com.jsbb.productservice.service.ProductService;
+import com.jsbb.productservice.util.ApiConstants;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -14,7 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/products")
+@RequestMapping(ApiConstants.PRODUCTS_BASE_PATH)
 @RequiredArgsConstructor
 @Tag(name = "Products", description = "Product management endpoints")
 public class ProductController {
@@ -27,7 +29,7 @@ public class ProductController {
             @Valid @RequestBody ProductRequest request) {
         ProductResponse product = service.create(request);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(JsonApiResponse.of(String.valueOf(product.id()), "products", product));
+                .body(JsonApiResponse.of(String.valueOf(product.id()), ApiConstants.TYPE_PRODUCTS, product));
     }
 
     @Operation(summary = "Get product by ID")
@@ -35,15 +37,14 @@ public class ProductController {
     public ResponseEntity<JsonApiResponse<ProductResponse>> getById(@PathVariable Long id) {
         ProductResponse product = service.getById(id);
         return ResponseEntity.ok(
-                JsonApiResponse.of(String.valueOf(product.id()), "products", product));
+                JsonApiResponse.of(String.valueOf(product.id()), ApiConstants.TYPE_PRODUCTS, product));
     }
 
     @Operation(summary = "List all products")
     @GetMapping
     public ResponseEntity<JsonApiListResponse<ProductResponse>> getAll() {
         var items = service.getAll().stream()
-                .map(p -> new com.jsbb.productservice.dto.response.JsonApiData<>(
-                        String.valueOf(p.id()), "products", p))
+                .map(p -> new JsonApiData<>(String.valueOf(p.id()), ApiConstants.TYPE_PRODUCTS, p))
                 .toList();
         return ResponseEntity.ok(JsonApiListResponse.of(items));
     }
