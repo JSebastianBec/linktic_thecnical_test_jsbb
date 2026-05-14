@@ -27,13 +27,13 @@ export default defineConfig(() => {
     framework: {
       config: {
         brand: {
-          primary: '#3A86FF',
-          secondary: '#8338EC',
-          accent: '#FF006E',
-          positive: '#21BA45',
-          negative: '#C10015',
-          info: '#31CCEC',
-          warning: '#F2C037',
+          primary: '#7A9E59',
+          secondary: '#5C7A3E',
+          accent: '#C4A84F',
+          positive: '#4CAF50',
+          negative: '#C62828',
+          info: '#5B9BAF',
+          warning: '#E6A817',
         },
         notify: { position: 'top-right', timeout: 3000 },
       },

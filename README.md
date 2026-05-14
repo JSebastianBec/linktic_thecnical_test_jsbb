@@ -1,52 +1,52 @@
-# Linktic Technical Test — JSBB
+# Linktic Technical Test — Juan Sebastian Becerra Bautista
 
-Microservices system for product and inventory management built with **Java 21**, **Spring Boot**, and **Gradle**.
-Features a deferred purchase flow using **RabbitMQ queues** with automatic retry logic, and a **Quasar/Vue 3** frontend.
-Demonstrates Git Flow, JSON API standard, Testcontainers integration testing, and Docker Compose orchestration.
+Sistema de gestión de productos e inventario construido con **Java 21**, **Spring Boot** y **Gradle**.
+Implementa un flujo de compra diferida usando **colas RabbitMQ** con lógica de reintentos automáticos y un frontend en **Quasar/Vue 3**.
+Demuestra estándar JSON API, pruebas de integración con Testcontainers y orquestación con Docker Compose.
 
 ---
 
-## Table of Contents
+## Tabla de contenidos
 
-1. [Requirements](#requirements)
-2. [Installation & Execution](#installation--execution)
-3. [Architecture](#architecture)
-4. [Service Interaction Diagram](#service-interaction-diagram)
-5. [API Documentation](#api-documentation)
-6. [Purchase Flow](#purchase-flow)
-7. [Monitoring RabbitMQ](#monitoring-rabbitmq)
-8. [Technical Decisions](#technical-decisions)
-9. [Testing](#testing)
+1. [Requisitos](#requisitos)
+2. [Instalación y ejecución](#instalación-y-ejecución)
+3. [Arquitectura](#arquitectura)
+4. [Diagrama de interacción entre servicios](#diagrama-de-interacción-entre-servicios)
+5. [Documentación de la API](#documentación-de-la-api)
+6. [Flujo de compra](#flujo-de-compra)
+7. [Monitoreo de RabbitMQ](#monitoreo-de-rabbitmq)
+8. [Decisiones técnicas](#decisiones-técnicas)
+9. [Pruebas](#pruebas)
 10. [Git Flow](#git-flow)
-11. [AI Tools Usage](#ai-tools-usage)
+11. [Uso de herramientas de IA](#uso-de-herramientas-de-ia)
 
 ---
 
-## Requirements
+## Requisitos
 
 - Docker Desktop / Colima
 - Docker Compose v2
-- Java 21 (only for local development without Docker)
-- Node.js 22+ (only for local frontend development)
+- Java 21 (solo para desarrollo local sin Docker)
+- Node.js 22+ (solo para desarrollo local del frontend)
 
 ---
 
-## Installation & Execution
+## Instalación y ejecución
 
-### 1. Clone the repository
+### 1. Clonar el repositorio
 
 ```bash
 git clone https://github.com/JSebastianBec/linktic_thecnical_test_jsbb.git
 cd linktic_thecnical_test_jsbb
 ```
 
-### 2. Configure environment variables
+### 2. Configurar variables de entorno
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` with your values (defaults work for local Docker):
+Editar `.env` con los valores deseados (los valores por defecto funcionan para Docker local):
 
 ```env
 POSTGRES_DB=linktic_db
@@ -55,83 +55,102 @@ POSTGRES_PASSWORD=changeme
 RABBITMQ_USER=guest
 RABBITMQ_PASSWORD=guest
 API_KEY=your-secret-api-key
+VITE_API_KEY=your-secret-api-key
 ```
 
-### 3. Build the services
+> `API_KEY` y `VITE_API_KEY` deben tener el mismo valor para que el frontend pueda autenticarse con el backend.
+
+### 3. Compilar los servicios
 
 ```bash
-# Build Java services before Docker
+# Compilar los servicios Java
 cd product-service && ./gradlew bootJar --no-daemon && cd ..
 cd inventory-service && ./gradlew bootJar --no-daemon && cd ..
 
-# Install frontend dependencies
+# Instalar dependencias del frontend
 cd frontend && npm install && cd ..
 ```
 
-### 4. Start
+### 4. Vista previa del frontend (sin Docker)
+
+Para revisar la interfaz sin levantar todo el ambiente:
 
 ```bash
-# First run — builds images and starts all containers
+cd frontend
+npm install      # solo la primera vez
+npx quasar dev
+```
+
+El frontend queda disponible en **http://localhost:9000**.
+
+> En este modo el frontend arranca solo, sin conexión a los backends. Las llamadas a la API fallarán, pero sirve para revisar el diseño, la navegación y el layout.
+
+---
+
+### 5. Levantar el ambiente completo
+
+```bash
+# Primera vez — construye las imágenes e inicia todos los contenedores
 docker-compose up --build
 
-# Subsequent runs — starts without rebuilding (faster)
+# Ejecuciones siguientes — inicia sin reconstruir (más rápido)
 docker-compose up
 ```
 
-> All services start in dependency order: PostgreSQL and RabbitMQ first, then the backends, then the frontend.
+> Los servicios arrancan en orden de dependencia: primero PostgreSQL y RabbitMQ, luego los backends, luego el frontend.
 
-### 5. Stop
+### 6. Detener
 
 ```bash
-# Stop all containers but keep volumes and data
+# Detiene los contenedores pero conserva los volúmenes y datos
 docker-compose stop
 
-# Stop and remove containers (data is preserved in volumes)
+# Detiene y elimina los contenedores (los datos se conservan en volúmenes)
 docker-compose down
 ```
 
-### 6. Clean restart (wipe all data)
+### 7. Reinicio limpio (borrar todos los datos)
 
-Use this when you want a completely fresh state — empty database, empty queues:
+Usar cuando se quiere un estado completamente fresco — base de datos vacía, colas vacías:
 
 ```bash
-# Stop containers and delete volumes (all data is lost)
+# Detiene los contenedores y elimina los volúmenes (se pierden todos los datos)
 docker-compose down -v
 
-# Rebuild images and start fresh
+# Reconstruye las imágenes e inicia desde cero
 docker-compose up --build
 ```
 
-> Use `down -v` when switching branches or after schema changes to avoid Hibernate conflicts with existing tables.
+> Usar `down -v` al cambiar de rama o después de cambios en el esquema para evitar conflictos de Hibernate con tablas existentes.
 
-### Service URLs
+### URLs del sistema
 
-| Service           | URL                                        |
-|-------------------|--------------------------------------------|
-| Frontend          | http://localhost:9000                      |
-| Product Service   | http://localhost:8080                      |
-| Inventory Service | http://localhost:8081                      |
-| Swagger Products  | http://localhost:8080/swagger-ui.html      |
-| Swagger Inventory | http://localhost:8081/swagger-ui.html      |
-| RabbitMQ UI       | http://localhost:15672                     |
+| Servicio          | URL                                   |
+|-------------------|---------------------------------------|
+| Frontend          | http://localhost:9000                 |
+| Product Service   | http://localhost:8080                 |
+| Inventory Service | http://localhost:8081                 |
+| Swagger Productos | http://localhost:8080/swagger-ui.html |
+| Swagger Inventario| http://localhost:8081/swagger-ui.html |
+| RabbitMQ UI       | http://localhost:15672                |
 
-### Authentication
+### Autenticación
 
-All API endpoints require the header:
+Todos los endpoints de la API requieren el header:
 
 ```
-X-API-KEY: <your-api-key>
+X-API-KEY: <tu-api-key>
 ```
 
 ---
 
-## Architecture
+## Arquitectura
 
-The system follows a **microservices architecture** with two backend services, one frontend, and two infrastructure services:
+El sistema sigue una **arquitectura de microservicios** con dos servicios backend, un frontend y dos servicios de infraestructura:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        Browser                              │
+│                       Navegador                             │
 └───────────────────────────┬─────────────────────────────────┘
                             │ HTTP
                             ▼
@@ -144,15 +163,15 @@ The system follows a **microservices architecture** with two backend services, o
 ┌──────────────────────┐    ┌──────────────────────────────────┐
 │   product-service    │    │       inventory-service          │
 │      :8080           │◄───│           :8081                  │
-│                      │HTTP│  (calls product-service for      │
-│  - Create product    │    │   product info via WebClient)    │
-│  - Get by ID         │    │                                  │
-│  - List all          │    │  - Get stock                     │
-└──────────┬───────────┘    │  - Update stock                  │
-           │                │  - Request purchase (async)      │
-           │ publishes      │  - Get purchase status           │
+│                      │HTTP│  (consulta product-service       │
+│  - Crear producto    │    │   vía WebClient)                 │
+│  - Obtener por ID    │    │                                  │
+│  - Listar todos      │    │  - Consultar stock               │
+└──────────┬───────────┘    │  - Actualizar stock              │
+           │                │  - Solicitar compra (async)      │
+           │ publica        │  - Consultar estado de compra    │
            │ product.created└──────────────┬───────────────────┘
-           ▼                               │ publishes / consumes
+           ▼                               │ publica / consume
 ┌─────────────────────────────────────────▼───────────────────┐
 │                       RabbitMQ :5672                        │
 │                                                             │
@@ -161,79 +180,79 @@ The system follows a **microservices architecture** with two backend services, o
 │                                                             │
 │  purchase.exchange                                          │
 │    ├── purchase.requested  ──► PurchaseRequestedListener    │
-│    └── purchase.wait (TTL=10s → back to purchase.requested) │
+│    └── purchase.wait (TTL=10s → regresa a purchase.requested│
 └─────────────────────────────────────────────────────────────┘
            │                               │
            ▼                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                   PostgreSQL :5432                          │
-│           (shared database: linktic_db)                     │
-│   tables: products | inventory | purchase_requests          │
+│           (base de datos compartida: linktic_db)            │
+│   tablas: products | inventory | purchase_requests          │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Service Interaction Diagram
+## Diagrama de interacción entre servicios
 
-### Creating a product (synchronous + async event)
+### Creación de un producto (síncrono + evento asíncrono)
 
 ```
-Client                product-service           RabbitMQ         inventory-service
+Cliente               product-service           RabbitMQ         inventory-service
   │                        │                       │                    │
-  │── POST /products ──────►│                       │                    │
-  │                        │── save to DB ─────────│                    │
-  │                        │── publish ────────────► product.created     │
+  │── POST /products ─────►│                       │                    │
+  │                        │── guarda en BD ───────│                    │
+  │                        │── publica ────────────► product.created    │
   │◄─── 201 Created ───────│                       │                    │
-  │                        │                       │── deliver ─────────►│
-  │                        │                       │                    │── create Inventory(stock=0)
+  │                        │                       │── entrega ────────►│
+  │                        │                       │                    │── crea Inventory(stock=0)
 ```
 
-### Requesting a purchase (asynchronous with retry)
+### Solicitud de compra (asíncrono con reintentos)
 
 ```
-Client           inventory-service        RabbitMQ             inventory-service
-  │                    │                     │                  (listener)
-  │── POST /purchases ─►│                    │                     │
-  │                    │── save PENDING ─────│                     │
-  │                    │── publish ──────────► purchase.requested   │
+Cliente          inventory-service        RabbitMQ             inventory-service
+  │                    │                    │                  (listener)
+  │── POST /purchases ─►│                   │                     │
+  │                    │── guarda PENDING ──│                     │
+  │                    │── publica ──────────► purchase.requested │
   │◄── 202 ACCEPTED ───│                    │                     │
-  │                    │                    │── deliver ──────────►│
-  │                    │                    │                     │── check stock
+  │                    │                    │── entrega ─────────►│
+  │                    │                    │                     │── verifica stock
   │                    │                    │                     │
-  │  (polls status)    │                    │   [no stock]        │── publish to purchase.wait
+  │  (consulta estado) │                    │   [sin stock]       │── publica a purchase.wait
   │── GET /purchases/id►│                   │◄── TTL 10s ─────────│
-  │◄── { PENDING } ────│                    │── deliver ──────────►│── check stock (attempt 2)
+  │◄── { PENDING } ────│                    │── entrega ─────────►│── verifica stock (intento 2)
   │                    │                    │                     │
-  │                    │                    │   [stock available] │── deduct stock
-  │                    │                    │                     │── save COMPLETED
-  │── GET /purchases/id►│                   │                     │
+  │                    │                    │   [stock disponible]│── descuenta stock
+  │                    │                    │                     │── guarda COMPLETED
+  │─ GET /purchases/id►│                   │                     │
   │◄── { COMPLETED } ──│                    │                     │
 ```
 
 ---
 
-## API Documentation
+## Documentación de la API
 
 ### Product Service — `http://localhost:8080`
 
-| Method | Endpoint                  | Description         | Auth     |
-|--------|---------------------------|---------------------|----------|
-| POST   | `/api/v1/products`        | Create a product    | Required |
-| GET    | `/api/v1/products`        | List all products   | Required |
-| GET    | `/api/v1/products/{id}`   | Get product by ID   | Required |
-| GET    | `/actuator/health`        | Health check        | None     |
+| Método | Endpoint                  | Descripción            | Auth       |
+|--------|---------------------------|------------------------|------------|
+| POST   | `/api/v1/products`        | Crear un producto      | Requerida  |
+| GET    | `/api/v1/products`        | Listar todos           | Requerida  |
+| GET    | `/api/v1/products/{id}`   | Obtener por ID         | Requerida  |
+| GET    | `/actuator/health`        | Estado del servicio    | No requerida |
 
-**Create product — request:**
+**Crear producto — request:**
 ```json
 {
   "name": "Laptop",
   "price": 1500.00,
-  "description": "Gaming laptop"
+  "description": "Laptop gaming"
 }
 ```
 
-**Create product — response (JSON API):**
+**Crear producto — response (JSON API):**
 ```json
 {
   "data": {
@@ -243,7 +262,7 @@ Client           inventory-service        RabbitMQ             inventory-service
       "id": 1,
       "name": "Laptop",
       "price": 1500.00,
-      "description": "Gaming laptop"
+      "description": "Laptop gaming"
     }
   }
 }
@@ -253,15 +272,16 @@ Client           inventory-service        RabbitMQ             inventory-service
 
 ### Inventory Service — `http://localhost:8081`
 
-| Method | Endpoint                              | Description              | Auth     |
-|--------|---------------------------------------|--------------------------|----------|
-| GET    | `/api/v1/inventory/{productId}`       | Get stock by product     | Required |
-| PUT    | `/api/v1/inventory/{productId}/stock` | Update stock             | Required |
-| POST   | `/api/v1/inventory/purchases`         | Request purchase (async) | Required |
-| GET    | `/api/v1/inventory/purchases/{id}`    | Get purchase status      | Required |
-| GET    | `/actuator/health`                    | Health check             | None     |
+| Método | Endpoint                              | Descripción                    | Auth       |
+|--------|---------------------------------------|--------------------------------|------------|
+| GET    | `/api/v1/inventory`                   | Listar todo el inventario      | Requerida  |
+| GET    | `/api/v1/inventory/{productId}`       | Consultar stock por producto   | Requerida  |
+| PUT    | `/api/v1/inventory/{productId}/stock` | Actualizar stock               | Requerida  |
+| POST   | `/api/v1/inventory/purchases`         | Solicitar compra (asíncrono)   | Requerida  |
+| GET    | `/api/v1/inventory/purchases/{id}`    | Consultar estado de la compra  | Requerida  |
+| GET    | `/actuator/health`                    | Estado del servicio            | No requerida |
 
-**Request purchase — request:**
+**Solicitar compra — request:**
 ```json
 {
   "productId": 1,
@@ -269,7 +289,7 @@ Client           inventory-service        RabbitMQ             inventory-service
 }
 ```
 
-**Request purchase — response (202 Accepted):**
+**Solicitar compra — response (202 Accepted):**
 ```json
 {
   "data": {
@@ -289,7 +309,7 @@ Client           inventory-service        RabbitMQ             inventory-service
 }
 ```
 
-**Error response format (JSON API):**
+**Formato de error (JSON API):**
 ```json
 {
   "errors": [
@@ -305,115 +325,115 @@ Client           inventory-service        RabbitMQ             inventory-service
 
 ---
 
-## Purchase Flow
+## Flujo de compra
 
-The purchase endpoint was implemented in **`inventory-service`** for the following reasons:
+El endpoint de compra fue implementado en **`inventory-service`** por las siguientes razones:
 
-1. **Domain ownership** — inventory is the bounded context that owns stock state. A purchase is a write operation on inventory data, so it belongs there.
-2. **Low coupling** — `product-service` only manages the product catalog. Adding purchase logic there would create an undesired dependency on inventory.
-3. **Single responsibility** — `inventory-service` is responsible for stock consistency. Keeping purchase logic there means one service controls the full lifecycle of a stock operation.
+1. **Dueño del dominio** — el inventario es el contexto delimitado que posee el estado del stock. Una compra es una operación de escritura sobre datos de inventario, por lo tanto le corresponde a ese servicio.
+2. **Bajo acoplamiento** — `product-service` solo gestiona el catálogo de productos. Agregar lógica de compras allí crearía una dependencia innecesaria con inventario.
+3. **Responsabilidad única** — `inventory-service` es responsable de la consistencia del stock. Mantener la lógica de compra allí significa que un solo servicio controla el ciclo completo de una operación de stock.
 
-### Deferred purchase flow
+### Flujo de compra diferida
 
-The purchase uses an **asynchronous queue-based approach** instead of a synchronous HTTP response:
+La compra usa un **enfoque asíncrono basado en colas** en lugar de una respuesta HTTP sincrónica:
 
 ```
 POST /purchases  →  202 Accepted + purchaseId
                         │
-                   published to purchase.requested queue
+                   publicado a la cola purchase.requested
                         │
-              PurchaseRequestedListener checks stock
+              PurchaseRequestedListener verifica stock
                         │
-              ┌─── stock available? ───┐
-              │ YES                   │ NO
+              ┌─── ¿hay stock? ────────┐
+              │ SÍ                    │ NO
               ▼                       ▼
-         deduct stock          attempt < 3?
-         COMPLETED              │         │
-                               YES       NO
-                                ▼         ▼
-                         publish to    FAILED
-                         purchase.wait  "Insufficient stock
-                         (TTL=10s)       after 3 attempts"
+         descuenta stock        ¿intentos < 3?
+         COMPLETED              │           │
+                               SÍ          NO
+                                ▼           ▼
+                         publica a       FAILED
+                         purchase.wait   "Sin stock tras
+                         (TTL=10s)        3 intentos"
                                 ▼
-                         retry after 10s
+                         reintenta en 10s
 ```
 
-**Why asynchronous?** When a purchase is requested and stock is temporarily unavailable (e.g., a stock update is expected), the system waits up to 30 seconds (3 attempts × 10s) before failing. This avoids forcing the client to poll the product's availability manually.
+**¿Por qué asíncrono?** Cuando se solicita una compra y el stock está temporalmente en cero (por ejemplo, se espera una reposición), el sistema espera hasta 30 segundos (3 intentos × 10s) antes de fallar. Esto evita que el cliente tenga que manejar manualmente los reintentos.
 
-The client uses `GET /api/v1/inventory/purchases/{id}` to poll the result. The frontend polls every 3 seconds and stops automatically when the status resolves to `COMPLETED` or `FAILED`.
+El cliente usa `GET /api/v1/inventory/purchases/{id}` para consultar el resultado. El frontend hace polling cada 3 segundos y se detiene automáticamente cuando el estado resuelve a `COMPLETED` o `FAILED`.
 
 ---
 
-## Monitoring RabbitMQ
+## Monitoreo de RabbitMQ
 
-### Management UI
+### Interfaz de administración
 
-Open **http://localhost:15672** in the browser after running `docker-compose up`.
+Abrir **http://localhost:15672** en el navegador después de ejecutar `docker-compose up`.
 
-| Field    | Value   |
-|----------|---------|
-| Username | `guest` |
-| Password | `guest` |
+| Campo      | Valor   |
+|------------|---------|
+| Usuario    | `guest` |
+| Contraseña | `guest` |
 
-#### Key sections
+#### Secciones principales
 
-**Overview tab**
-Global message rates — published, delivered, acknowledged and unacknowledged per second. Useful to confirm messages are flowing when a product is created or a purchase is requested.
+**Pestaña Overview**
+Tasas globales de mensajes — publicados, entregados, confirmados y no confirmados por segundo. Útil para verificar que los mensajes fluyen al crear un producto o al solicitar una compra.
 
-**Queues tab**
-Shows each queue with its current state:
+**Pestaña Queues**
+Muestra cada cola con su estado actual:
 
-| Queue | Purpose |
+| Cola | Propósito |
 |---|---|
-| `inventory.product-created` | Receives `product.created` events — triggers inventory initialization |
-| `purchase.requested` | Entry point for new purchase requests |
-| `purchase.wait` | Holds retried purchases for 10 s (TTL) before re-routing back to `purchase.requested` |
-| `purchase.dlq` | Dead letter queue — messages land here if processing fails repeatedly |
+| `inventory.product-created` | Recibe eventos de creación de producto — inicializa el inventario |
+| `purchase.requested` | Punto de entrada para nuevas solicitudes de compra |
+| `purchase.wait` | Retiene compras en espera durante 10s (TTL) antes de reenviarlas a `purchase.requested` |
+| `purchase.dlq` | Cola de mensajes fallidos — los mensajes llegan aquí si el procesamiento falla repetidamente |
 
-Click any queue name to see:
-- **Messages ready** — waiting to be consumed
-- **Messages unacknowledged** — being processed right now
-- **Get messages** button — inspect the raw JSON payload of any message in the queue
+Al hacer clic en el nombre de una cola se puede ver:
+- **Messages ready** — en espera de ser consumidos
+- **Messages unacknowledged** — siendo procesados ahora mismo
+- Botón **Get messages** — inspecciona el payload JSON de cualquier mensaje en la cola
 
-**Exchanges tab**
-Shows `products.exchange` and `purchase.exchange`. Click either to see bindings — which queues each routing key maps to.
+**Pestaña Exchanges**
+Muestra `products.exchange` y `purchase.exchange`. Al hacer clic en cada uno se ven los bindings — qué colas corresponden a cada routing key.
 
 ---
 
-### Container logs
+### Logs de los contenedores
 
-The most useful logs for tracing the message flow are in `inventory-service`, since it both consumes and publishes:
+Los logs más útiles para rastrear el flujo de mensajes están en `inventory-service`, ya que es quien consume y publica:
 
 ```bash
-# Follow inventory-service logs (listeners log every step)
+# Seguir logs de inventory-service (los listeners registran cada paso)
 docker logs inventory-service -f
 
-# Follow product-service logs (publishes product.created on every POST /products)
+# Seguir logs de product-service (publica product.created en cada POST /products)
 docker logs product-service -f
 
-# RabbitMQ broker logs
+# Logs del broker RabbitMQ
 docker logs rabbitmq -f
 
-# Show only the last 50 lines then follow
+# Mostrar las últimas 50 líneas y continuar
 docker logs inventory-service --tail 50 -f
 ```
 
-#### Expected log sequence — create product + purchase
+#### Secuencia esperada de logs — crear producto + compra
 
 ```
-# product-service — after POST /products
+# product-service — tras POST /products
 INFO  ProductService : Product created: id=1, name=Laptop
 
-# inventory-service — listener receives product.created
+# inventory-service — listener recibe product.created
 INFO  ProductCreatedListener : Product created event received: productId=1, name=Laptop
 INFO  ProductCreatedListener : Inventory initialized for productId=1 with stock=0
 
-# inventory-service — after POST /inventory/purchases (stock available)
+# inventory-service — tras POST /inventory/purchases (con stock disponible)
 INFO  InventoryService          : Purchase request enqueued: id=<uuid>, productId=1, qty=3
 INFO  PurchaseRequestedListener : Processing purchase: id=<uuid>, productId=1, qty=3, attempt=1
 INFO  PurchaseRequestedListener : Purchase COMPLETED: id=<uuid>, remaining stock=7
 
-# inventory-service — retry flow (no stock available)
+# inventory-service — flujo de reintentos (sin stock disponible)
 INFO  InventoryService          : Purchase request enqueued: id=<uuid>, productId=1, qty=99
 INFO  PurchaseRequestedListener : Processing purchase: id=<uuid>, productId=1, qty=99, attempt=1
 WARN  PurchaseRequestedListener : Insufficient stock — retry scheduled (attempt 1/3)
@@ -425,103 +445,111 @@ WARN  PurchaseRequestedListener : Purchase FAILED: id=<uuid> — insufficient st
 
 ---
 
-## Technical Decisions
+## Decisiones técnicas
 
-### Database — PostgreSQL
+### Base de datos — PostgreSQL
 
-PostgreSQL was chosen over SQLite or NoSQL for these reasons:
+Se eligió PostgreSQL sobre SQLite o NoSQL por las siguientes razones:
 
-- The purchase flow requires **ACID transactions** — when stock is deducted and a purchase record is created, both must succeed or both must roll back.
-- Both services share the same PostgreSQL instance with logically separate tables, which simplifies the Docker Compose setup without sacrificing data consistency.
-- Spring Data JPA supports PostgreSQL natively with no extra configuration.
+- El flujo de compra requiere **transacciones ACID** — cuando se descuenta el stock y se crea el registro de compra, ambas operaciones deben completarse o revertirse juntas.
+- Ambos servicios comparten la misma instancia de PostgreSQL con tablas lógicamente separadas, lo que simplifica la configuración de Docker Compose sin sacrificar consistencia de datos.
+- Spring Data JPA soporta PostgreSQL de forma nativa sin configuración adicional.
 
-### Build tool — Gradle (Kotlin DSL)
+### Herramienta de build — Gradle (Kotlin DSL)
 
-Gradle with `build.gradle.kts` was chosen over Maven because:
+Se eligió Gradle con `build.gradle.kts` sobre Maven porque:
 
-- Kotlin DSL provides type-safety and IDE autocompletion for build scripts.
-- Gradle's incremental build and dependency caching is significantly faster than Maven on repeated builds.
-- JaCoCo coverage configuration is more concise and flexible in Gradle.
+- Kotlin DSL provee seguridad de tipos y autocompletado en el IDE para los scripts de build.
+- El build incremental y el caché de dependencias de Gradle son significativamente más rápidos que Maven en builds repetidos.
+- La configuración de JaCoCo es más concisa y flexible en Gradle.
 
-### HTTP Client — WebClient instead of RestTemplate
+### Cliente HTTP — WebClient en lugar de RestTemplate
 
-`inventory-service` uses `WebClient` (Spring WebFlux) instead of `RestTemplate` because:
+`inventory-service` usa `WebClient` (Spring WebFlux) en lugar de `RestTemplate` porque:
 
-- `RestTemplate` is in maintenance mode since Spring 5 and deprecated in Spring 6.
-- `WebClient` supports `.timeout()` and `.retry()` directly in the reactive chain without needing Spring Retry + AOP.
+- `RestTemplate` está en modo mantenimiento desde Spring 5 y fue deprecado en Spring Framework 6.
+- `WebClient` soporta `.timeout()` y `.retry()` directamente en la cadena reactiva sin necesitar Spring Retry + AOP.
 
-### DTOs — Java 21 Records
+### DTOs — Records de Java 21
 
-Request and response DTOs use `record` instead of classes with Lombok because:
+Los DTOs de request y response usan `record` en lugar de clases con Lombok porque:
 
-- Records are immutable by design, which prevents accidental mutation of request data.
-- No boilerplate: `equals`, `hashCode`, `toString`, and accessor methods are generated automatically.
-- Bean validation annotations (`@NotBlank`, `@Positive`) work on record components.
+- Los records son inmutables por diseño, lo que previene mutaciones accidentales de los datos de entrada.
+- Sin boilerplate: `equals`, `hashCode`, `toString` y los métodos de acceso se generan automáticamente.
+- Las anotaciones de validación (`@NotBlank`, `@Positive`) funcionan en los componentes del record.
 
-### RabbitMQ messaging — JSON serialization
+### Mensajería RabbitMQ — Serialización JSON
 
-Messages are serialized as **JSON** using `Jackson2JsonMessageConverter` instead of Java serialization because:
+Los mensajes se serializan como **JSON** usando `Jackson2JsonMessageConverter` en lugar de serialización Java porque:
 
-- JSON is language-agnostic — if a new service in a different language needs to consume the events, it can.
-- Java serialization is fragile: any refactor that changes class structure breaks deserialization of existing messages.
-- Both services declare the same `products.exchange` independently, so RabbitMQ creates it idempotently regardless of startup order.
+- JSON es agnóstico al lenguaje — si un nuevo servicio en otro lenguaje necesita consumir los eventos, puede hacerlo.
+- La serialización Java es frágil: cualquier refactor que cambie la estructura de una clase rompe la deserialización de mensajes existentes.
+- Ambos servicios declaran el mismo `products.exchange` de forma independiente, por lo que RabbitMQ lo crea de forma idempotente sin importar el orden de arranque.
 
 ---
 
-## Testing
+## Pruebas
 
-### Coverage
+### Cobertura
 
-| Service           | Type                | Tools                        | Target |
-|-------------------|---------------------|------------------------------|--------|
-| product-service   | Unit + Integration  | JUnit 5, Mockito, Testcontainers | ≥ 80% |
-| inventory-service | Unit                | JUnit 5, Mockito             | ≥ 80% |
+| Servicio          | Tipo                    | Herramientas                         | Objetivo |
+|-------------------|-------------------------|--------------------------------------|----------|
+| product-service   | Unitarias + Integración | JUnit 5, Mockito, Testcontainers     | ≥ 80%    |
+| inventory-service | Unitarias               | JUnit 5, Mockito                     | ≥ 80%    |
 
-### Run tests
+### Ejecutar pruebas
 
 ```bash
 # product-service
 cd product-service
-./gradlew test jacocoTestReport
+./gradlew test jacocoTestReport jacocoTestCoverageVerification
 
 # inventory-service
 cd inventory-service
-./gradlew test jacocoTestReport
+./gradlew test jacocoTestReport jacocoTestCoverageVerification
 ```
 
-Coverage reports are generated at `build/reports/jacoco/test/html/index.html`.
+Los reportes de cobertura se generan en `build/reports/jacoco/test/html/index.html`.
 
-### What is tested
+```bash
+# Abrir reporte en el navegador (Mac)
+open product-service/build/reports/jacoco/test/html/index.html
+open inventory-service/build/reports/jacoco/test/html/index.html
+```
+
+### Qué se prueba
 
 **product-service:**
-- `ProductService` — create, getById (found / not found), getAll
-- `ProductController` — JSON API format, 201/200/404 status codes, 401 when no API key
-- `GlobalExceptionHandler` — 404 and 400 error format
-- `ProductIntegrationTest` — full HTTP flow with PostgreSQL via Testcontainers
+- `ProductService` — crear, obtener por ID (encontrado / no encontrado), listar todos
+- `ProductController` — formato JSON API, códigos de estado 201/200/404, 401 sin API key
+- `GlobalExceptionHandler` — formato de error 404 y 400
+- `ProductIntegrationTest` — flujo HTTP completo con PostgreSQL real vía Testcontainers
 
 **inventory-service:**
-- `InventoryService` — getStock, updateStock, requestPurchase, getPurchaseStatus (all branches)
-- `InventoryController` — all endpoints, JSON API format, error codes
-- `GlobalExceptionHandler` — 404, 503, 500 error format
-- `PurchaseRequestedListener` — stock available → COMPLETED, no stock + retry, no stock + max attempts → FAILED, purchase not found → skip
-- `ProductCreatedListener` — creates inventory, skips if already exists
+- `InventoryService` — getStock, updateStock, requestPurchase, getPurchaseStatus (todas las ramas)
+- `InventoryController` — todos los endpoints, formato JSON API, códigos de error
+- `GlobalExceptionHandler` — formato de error 404, 503, 500
+- `PurchaseRequestedListener` — stock disponible → COMPLETED, sin stock + reintento, sin stock + máximo intentos → FAILED, solicitud no encontrada → omitir
+- `ProductCreatedListener` — crea inventario, omite si ya existe
 
 ---
 
 ## Git Flow
 
-This project follows the **Git Flow** branching model:
+Este proyecto sigue el modelo de ramas **Git Flow**:
 
 ```
-main          ← production releases only
-develop       ← integration branch
-feature/*     ← individual feature branches
-release/*     ← release preparation
+main          ← solo recibe merges de release/*
+develop       ← rama de integración
+feature/*     ← ramas de funcionalidades individuales
+release/*     ← preparación de versiones
+bugfix/*      ← solucion de issues
+hotfix/*      ← solucion de issues en producción
 ```
 
-### Commit convention
+### Convención de commits
 
-Commits follow [Conventional Commits](https://www.conventionalcommits.org/):
+Los commits siguen [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
 feat(product): add create product endpoint
@@ -531,3 +559,39 @@ chore(infra): add docker-compose healthchecks
 ```
 
 ---
+
+## Uso de herramientas de IA
+
+### Herramientas utilizadas
+
+| Herramienta  | Propósito                                                                    |
+|--------------|------------------------------------------------------------------------------|
+| Claude Code  | Diseño de arquitectura, revisión de código, generación de tests, documentación |
+
+### Cómo se usó la IA
+
+**Diseño de arquitectura y decisiones técnicas**
+Claude Code se utilizó para evaluar las ventajas y desventajas entre el enfoque de compra síncrono y asíncrono. El patrón de cola diferida con reintento basado en TTL fue propuesto y refinado a través de conversación, comparándolo con alternativas sincrónicas más simples.
+
+**Scaffolding inicial**
+Los proyectos Spring Boot se generaron vía Spring Initializr (start.spring.io). Los archivos `build.gradle.kts` se configuraron con las versiones correctas de dependencias y reglas de exclusión de JaCoCo.
+
+**Revisión de código y calidad**
+Después de cada fase de implementación, Claude Code revisó el código buscando:
+- Anotaciones `@Transactional` faltantes
+- Consistencia de JSON API en todos los endpoints
+- Firmas de métodos ambiguas en verificaciones de Mockito
+- APIs deprecadas de Spring Boot 3.5 (`@MockBean` → `@MockitoBean`)
+
+**Generación de pruebas**
+Las pruebas unitarias de servicios, pruebas de controladores con `@WebMvcTest` y la estructura de pruebas de integración con Testcontainers fueron generadas y luego verificadas manualmente ejecutando `./gradlew test`.
+
+### Verificación de calidad
+
+Todo el código generado por IA fue verificado mediante:
+1. Ejecución de la suite completa de pruebas (`./gradlew test`)
+2. Revisión de los reportes de cobertura JaCoCo para confirmar que se alcanza el mínimo del 80%
+3. Inspección manual de las aserciones de los tests para confirmar que corresponden a la lógica de negocio real
+4. Ejecución de `docker-compose up` para validar el comportamiento de extremo a extremo
+
+La IA se utilizó para acelerar el desarrollo, no para reemplazar la comprensión. Cada archivo generado fue leído, entendido y ajustado antes de ser confirmado en el repositorio.
