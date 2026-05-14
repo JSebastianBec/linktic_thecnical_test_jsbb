@@ -2,7 +2,9 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 COPY package.json ./
-RUN npm install
+# --legacy-peer-deps ignora el conflicto de peerDependency entre @pinia/testing (solo tests)
+# y pinia@2.x — no afecta el build de producción porque @pinia/testing no se usa en él
+RUN npm install --legacy-peer-deps
 
 COPY . .
 
