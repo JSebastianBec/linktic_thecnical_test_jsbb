@@ -675,7 +675,7 @@ Requisito: Node.js 20+ instalado.
 cd frontend
 
 # Instalar dependencias (solo la primera vez)
-npm install
+npm install --legacy-peer-deps
 
 # Ejecutar todos los tests una vez
 npm test
