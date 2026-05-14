@@ -1,5 +1,6 @@
 package com.jsbb.productservice.exception;
 
+import com.jsbb.productservice.util.ErrorMessages;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -12,7 +13,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ProductNotFoundException.class)
     public ResponseEntity<ApiErrorResponse> handleNotFound(ProductNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ApiErrorResponse.of("404", "Product Not Found", ex.getMessage()));
+                .body(ApiErrorResponse.of(ErrorMessages.STATUS_404, ErrorMessages.PRODUCT_NOT_FOUND_TITLE, ex.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -22,12 +23,12 @@ public class GlobalExceptionHandler {
                 .findFirst()
                 .orElse("Validation error");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ApiErrorResponse.of("400", "Validation Error", detail));
+                .body(ApiErrorResponse.of(ErrorMessages.STATUS_400, ErrorMessages.VALIDATION_ERROR_TITLE, detail));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleGeneric(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiErrorResponse.of("500", "Internal Server Error", ex.getMessage()));
+                .body(ApiErrorResponse.of(ErrorMessages.STATUS_500, ErrorMessages.INTERNAL_ERROR_TITLE, ex.getMessage()));
     }
 }

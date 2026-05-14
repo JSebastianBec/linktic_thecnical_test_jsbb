@@ -3,6 +3,8 @@ package com.jsbb.inventoryservice.client;
 import com.jsbb.inventoryservice.dto.response.ProductResponse;
 import com.jsbb.inventoryservice.exception.ProductNotFoundException;
 import com.jsbb.inventoryservice.exception.ProductServiceUnavailableException;
+import com.jsbb.inventoryservice.util.ApiConstants;
+import com.jsbb.inventoryservice.util.ErrorMessages;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -23,7 +25,7 @@ public class ProductClient {
                          @Value("${product.service.api-key}") String apiKey) {
         this.webClient = WebClient.builder()
                 .baseUrl(baseUrl)
-                .defaultHeader("X-API-KEY", apiKey)
+                .defaultHeader(ApiConstants.API_KEY_HEADER, apiKey)
                 .build();
     }
 
@@ -31,7 +33,7 @@ public class ProductClient {
         log.info("Fetching product from product-service: id={}", productId);
         try {
             Map response = webClient.get()
-                    .uri("/api/v1/products/{id}", productId)
+                    .uri(ApiConstants.PRODUCTS_PATH, productId)
                     .retrieve()
                     .bodyToMono(Map.class)
                     .timeout(Duration.ofSeconds(3))
@@ -52,10 +54,10 @@ public class ProductClient {
                 throw new ProductNotFoundException(productId);
             }
             log.error("Error calling product-service: status={}", e.getStatusCode());
-            throw new ProductServiceUnavailableException("Product service error: " + e.getStatusCode());
+            throw new ProductServiceUnavailableException(ErrorMessages.PRODUCT_SERVICE_ERROR + e.getStatusCode());
         } catch (Exception e) {
             log.error("Product service unavailable: {}", e.getMessage());
-            throw new ProductServiceUnavailableException("Product service is unavailable");
+            throw new ProductServiceUnavailableException(ErrorMessages.PRODUCT_SERVICE_UNAVAILABLE);
         }
     }
 }
